@@ -1,0 +1,50 @@
+name: Deploy hacia el VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      
+      - name: Obtención código
+        uses: actions/checkout@v4
+
+    
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      
+      - name: Instalar dependencias y compilar
+        run: |
+          npm ci
+          npm run build
+          
+      - name: Limpiar carpeta (manteniendo .htaccess)
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            find /var/www/vintra.qsuene.com -mindepth 1 ! -name '.htaccess' -exec rm -rf {} +
+  
+      - name: Transferir archivos compilados al VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          source: "dist/*" 
+          target: "/var/www/vintra.qsuene.com"
+          strip_prefix: "dist" 
+          rm: false
